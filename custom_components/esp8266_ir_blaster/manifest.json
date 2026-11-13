@@ -1,0 +1,12 @@
+{
+  "domain": "esp8266_ir_blaster",
+  "name": "ESP8266 IR Blaster (HTTP)",
+  "codeowners": ["@sawyerb97"],
+  "config_flow": true,
+  "documentation": "https://github.com/sawyerb97/ha-esp8266-ir-blaster",
+  "issue_tracker": "https://github.com/sawyerb97/ha-esp8266-ir-blaster/issues",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "0.1.0"
+}

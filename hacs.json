@@ -1,0 +1,5 @@
+{
+  "name": "ESP8266 IR Blaster (HTTP)",
+  "homeassistant": "2025.2.0",
+  "render_readme": true
+}

@@ -1,0 +1,76 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "ESP8266 IR Blaster",
+        "description": "Connect to a blaster running the mdhiggins ESP8266-HTTP-IR-Blaster firmware.",
+        "data": { "host": "Host / IP", "port": "Port", "passcode": "Passcode (blank if none)", "name": "Name (optional)" }
+      },
+      "reauth_confirm": { "title": "Passcode rejected", "data": { "passcode": "Passcode" } },
+      "reconfigure": { "data": { "host": "Host / IP", "port": "Port", "passcode": "Passcode" } }
+    },
+    "error": {
+      "cannot_connect": "Could not reach an ESP8266 IR Controller at that address/port.",
+      "invalid_auth": "Passcode rejected."
+    },
+    "abort": {
+      "already_configured": "This blaster is already configured.",
+      "reauth_successful": "Passcode updated.",
+      "reconfigure_successful": "Connection updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "IR Blaster",
+        "menu_options": {
+          "library": "Add a device from the online IR code library",
+          "paste": "Paste a Flipper .ir file",
+          "delete": "Delete saved devices",
+          "settings": "Settings"
+        }
+      },
+      "settings": { "data": { "scan_interval": "Polling interval (seconds)" } },
+      "library": {
+        "title": "IR code library — category",
+        "description": "Codes come from the public Flipper-IRDB database on GitHub.",
+        "data": { "category": "Category" }
+      },
+      "library_brand": { "title": "{category} — brand", "data": { "brand": "Brand" } },
+      "library_model": {
+        "title": "{brand} {category} — remote / model",
+        "description": "Pick the closest remote or model. If unsure, start with a generic file (e.g. just the brand name) and test it on the next screen.",
+        "data": { "model": "Remote / model" }
+      },
+      "paste": { "title": "Paste .ir file", "description": "Paste the full contents of a Flipper IR signals file.", "data": { "ir_text": ".ir file contents" } },
+      "review": {
+        "title": "Test and save",
+        "description": "Source: `{source}`\n{count} buttons ready ({skipped} skipped).\n\nButtons: {buttons}\n\n{result}",
+        "data": { "device": "Device name (used in remote.send_command)", "test_button": "Test button", "output": "Transmitter output", "action": "Action" }
+      },
+      "delete": { "title": "Delete devices", "data": { "devices": "Devices" } }
+    },
+    "error": {
+      "fetch_failed": "Could not download that file from GitHub.",
+      "no_usable_codes": "No buttons in that file could be converted for this blaster."
+    },
+    "abort": {
+      "library_unavailable": "Could not load the IR code library: {error}",
+      "no_devices": "No saved devices."
+    }
+  },
+  "selector": {
+    "review_action": { "options": { "test": "Test (send the selected button)", "save": "Save device", "back": "Back — pick a different file" } }
+  },
+  "entity": {
+    "remote": { "output": { "name": "Output {output}" } },
+    "sensor": { "last_received": { "name": "Last received code" }, "last_sent": { "name": "Last sent code" } }
+  },
+  "services": {
+    "send_json": {
+      "name": "Send JSON",
+      "description": "Send a raw firmware JSON command array (raw, pronto, delay or named-protocol entries) on this output.",
+      "fields": { "commands": { "name": "Commands", "description": "JSON array, e.g. [{\"type\":\"nec\",\"data\":\"20DF10EF\",\"length\":32}]" } }
+    }
+  }
+}

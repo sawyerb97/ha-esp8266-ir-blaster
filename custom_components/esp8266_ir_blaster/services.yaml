@@ -1,0 +1,11 @@
+send_json:
+  target:
+    entity:
+      integration: esp8266_ir_blaster
+      domain: remote
+  fields:
+    commands:
+      required: true
+      example: '[{"type":"nec","data":"20DF10EF","length":32}]'
+      selector:
+        object:

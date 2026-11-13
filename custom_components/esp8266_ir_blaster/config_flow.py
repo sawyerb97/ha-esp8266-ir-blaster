@@ -90,18 +90,20 @@ class IRBlasterConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             host, port = user_input[CONF_HOST].strip(), int(user_input[CONF_PORT])
-            errors, _ = await self._validate(host, port, user_input.get(CONF_PASSCODE))
+            # Blank passcode = keep the stored one (never echoed back into the form).
+            passcode = user_input.get(CONF_PASSCODE) or entry.data.get(CONF_PASSCODE, "")
+            errors, _ = await self._validate(host, port, passcode)
             if not errors:
                 return self.async_update_reload_and_abort(
                     entry,
                     unique_id=f"{host}:{port}",
-                    data_updates={CONF_HOST: host, CONF_PORT: port, CONF_PASSCODE: user_input.get(CONF_PASSCODE, "")},
+                    data_updates={CONF_HOST: host, CONF_PORT: port, CONF_PASSCODE: passcode},
                 )
         schema = vol.Schema(
             {
                 vol.Required(CONF_HOST, default=entry.data[CONF_HOST]): str,
                 vol.Required(CONF_PORT, default=entry.data[CONF_PORT]): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
-                vol.Optional(CONF_PASSCODE, default=entry.data.get(CONF_PASSCODE, "")): PASSWORD,
+                vol.Optional(CONF_PASSCODE): PASSWORD,
             }
         )
         return self.async_show_form(step_id="reconfigure", data_schema=schema, errors=errors)

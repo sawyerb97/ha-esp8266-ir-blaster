@@ -7,7 +7,7 @@
         "data": { "host": "Host / IP", "port": "Port", "passcode": "Passcode (blank if none)", "name": "Name (optional)" }
       },
       "reauth_confirm": { "title": "Passcode rejected", "data": { "passcode": "Passcode" } },
-      "reconfigure": { "data": { "host": "Host / IP", "port": "Port", "passcode": "Passcode" } }
+      "reconfigure": { "description": "Leave passcode blank to keep the current one.", "data": { "host": "Host / IP or hostname (e.g. name.local)", "port": "Port", "passcode": "Passcode" } }
     },
     "error": {
       "cannot_connect": "Could not reach an ESP8266 IR Controller at that address/port.",

@@ -75,7 +75,7 @@ class IRBlasterRemote(CoordinatorEntity[IRBlasterCoordinator], RemoteEntity):
         super().__init__(data.coordinator)
         self._data = data
         self._out = out
-        self._attr_unique_id = f"{entry.unique_id or entry.entry_id}_out{out}"
+        self._attr_unique_id = f"{entry.entry_id}_out{out}"
         self._attr_translation_key = "output"
         self._attr_translation_placeholders = {"output": str(out)}
         self._attr_entity_registry_enabled_default = out == 1

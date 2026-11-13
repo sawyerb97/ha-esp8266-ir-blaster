@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 def device_info(entry: IRBlasterConfigEntry, data: IRBlasterData) -> DeviceInfo:
     return DeviceInfo(
-        identifiers={(DOMAIN, entry.unique_id or entry.entry_id)},
+        identifiers={(DOMAIN, entry.entry_id)},
         name=entry.title,
         manufacturer=MANUFACTURER,
         model=MODEL,

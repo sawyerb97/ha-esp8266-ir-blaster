@@ -30,7 +30,7 @@ class LastCodeSensor(CoordinatorEntity[IRBlasterCoordinator], SensorEntity):
         self._received = received
         key = "last_received" if received else "last_sent"
         self._attr_translation_key = key
-        self._attr_unique_id = f"{entry.unique_id or entry.entry_id}_{key}"
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
         self._attr_icon = "mdi:remote" if received else "mdi:led-on"
         self._attr_device_info = device_info(entry, data)
         if not received:

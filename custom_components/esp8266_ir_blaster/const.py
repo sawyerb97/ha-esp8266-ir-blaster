@@ -6,7 +6,8 @@ CONF_PASSCODE = "passcode"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 DEFAULT_PORT = 80
-DEFAULT_SCAN_INTERVAL = 10  # seconds
+DEFAULT_SCAN_INTERVAL = 30  # seconds
+SEND_QUIET_SECONDS = 15  # skip polls this long after an IR send
 DEFAULT_LEARN_TIMEOUT = 30  # seconds
 REQUEST_TIMEOUT = 10  # seconds
 

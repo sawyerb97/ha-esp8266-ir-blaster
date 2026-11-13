@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import logging
+import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -11,7 +12,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import IRBlasterAuthError, IRBlasterClient, IRBlasterError, IRCode, IRStatus
-from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN, EVENT_CODE_RECEIVED
+from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN, EVENT_CODE_RECEIVED, SEND_QUIET_SECONDS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -35,6 +36,9 @@ class IRBlasterCoordinator(DataUpdateCoordinator[IRStatus]):
         self.last_raw: list[int] | None = None
 
     async def _async_update_data(self) -> IRStatus:
+        # The ESP8266 serves one request at a time; don't make button presses queue behind a poll.
+        if self.data is not None and time.monotonic() - self.client.last_send < SEND_QUIET_SECONDS:
+            return self.data
         try:
             status = await self.client.get_status()
         except IRBlasterAuthError as err:

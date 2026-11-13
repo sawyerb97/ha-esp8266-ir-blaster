@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, Platform
@@ -12,6 +13,26 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 
 from .api import IRBlasterClient
+
+_LOGGER = logging.getLogger(__name__)
+
+
+async def _mdns_resolver(hass: HomeAssistant):
+    """Resolve hostnames (incl. name.local) with HA's shared mDNS-aware resolver."""
+    try:
+        from aiohttp_asyncmdnsresolver.api import AsyncMDNSResolver
+        from homeassistant.components import zeroconf
+
+        resolver = AsyncMDNSResolver(async_zeroconf=await zeroconf.async_get_async_instance(hass))
+    except Exception as err:  # noqa: BLE001 - optional speed-up only
+        _LOGGER.debug("mDNS resolver unavailable, using plain hostnames: %s", err)
+        return None
+
+    async def resolve(host: str) -> str | None:
+        infos = await resolver.resolve(host, 0)
+        return infos[0]["host"] if infos else None
+
+    return resolve
 from .const import CONF_PASSCODE, DEFAULT_PORT, DOMAIN
 from .coordinator import IRBlasterCoordinator
 
@@ -63,7 +84,7 @@ def _migrate_registry(hass: HomeAssistant, entry: IRBlasterConfigEntry) -> None:
             if (DOMAIN, eid) not in dev.identifiers:
                 dev_reg.async_update_device(dev.id, new_identifiers={(DOMAIN, eid)})
         elif not er.async_entries_for_device(ent_reg, dev.id, include_disabled_entities=True):
-            dev_reg.async_update_device(dev.id, remove_config_entry_id=eid)
+            dev_reg.async_remove_device(dev.id)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: IRBlasterConfigEntry) -> bool:
@@ -74,6 +95,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: IRBlasterConfigEntry) ->
         entry.data[CONF_HOST],
         entry.data.get(CONF_PORT, DEFAULT_PORT),
         entry.data.get(CONF_PASSCODE),
+        await _mdns_resolver(hass),
     )
     coordinator = IRBlasterCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()

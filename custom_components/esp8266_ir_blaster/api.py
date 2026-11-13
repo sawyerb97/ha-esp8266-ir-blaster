@@ -12,14 +12,21 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from collections.abc import Awaitable, Callable
 import html
+import ipaddress
 import json
+import logging
 import re
+import time
 from typing import Any
 
 import aiohttp
 
 from .const import REQUEST_TIMEOUT
+
+_LOGGER = logging.getLogger(__name__)
+IP_CACHE_SECONDS = 300
 
 
 class IRBlasterError(Exception):
@@ -100,12 +107,23 @@ def parse_status(page: str) -> IRStatus:
 class IRBlasterClient:
     """Async client. All requests are serialized: the ESP8266 server is single-threaded."""
 
-    def __init__(self, session: aiohttp.ClientSession, host: str, port: int, passcode: str | None) -> None:
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        host: str,
+        port: int,
+        passcode: str | None,
+        resolver: Callable[[str], Awaitable[str | None]] | None = None,
+    ) -> None:
         self._session = session
+        self._resolver = resolver
+        self._ip: str | None = None
+        self._ip_ts = 0.0
         self.host = host
         self.port = port
         self._passcode = passcode or ""
         self._lock = asyncio.Lock()
+        self.last_send = 0.0  # monotonic time of last IR send
 
     @property
     def base_url(self) -> str:
@@ -123,18 +141,49 @@ class IRBlasterClient:
     async def _request(self, method: str, path: str, params: dict[str, Any] | None = None, data: str | None = None) -> tuple[int, str]:
         async with self._lock:
             try:
-                async with self._session.request(
-                    method,
-                    f"{self.base_url}{path}",
-                    params=self._params(params),
-                    data=data,
-                    headers={"Content-Type": "application/json"} if data is not None else None,
-                    timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
-                ) as resp:
-                    text = await resp.text(errors="replace")
-                    status = resp.status
-            except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-                raise IRBlasterConnectionError(f"{self.host}:{self.port} unreachable: {err}") from err
+                return await self._do_request(method, path, params, data)
+            except IRBlasterConnectionError:
+                if self._ip is None:
+                    raise
+                self._ip = None  # address may have changed (DHCP); resolve again once
+                return await self._do_request(method, path, params, data)
+
+    async def _target(self) -> str:
+        """Host to connect to: a cached IP for hostnames, so requests skip the mDNS lookup."""
+        if self._resolver is None:
+            return self.host
+        try:
+            ipaddress.ip_address(self.host)
+            return self.host
+        except ValueError:
+            pass
+        if self._ip and time.monotonic() - self._ip_ts < IP_CACHE_SECONDS:
+            return self._ip
+        try:
+            ip = await self._resolver(self.host)
+        except Exception as err:  # noqa: BLE001 - fall back to the hostname
+            _LOGGER.debug("Resolving %s failed: %s", self.host, err)
+            ip = None
+        self._ip, self._ip_ts = ip, time.monotonic()
+        return ip or self.host
+
+    async def _do_request(self, method: str, path: str, params: dict[str, Any] | None, data: str | None) -> tuple[int, str]:
+        target = await self._target()
+        start = time.monotonic()
+        try:
+            async with self._session.request(
+                method,
+                f"http://{target}:{self.port}{path}",
+                params=self._params(params),
+                data=data,
+                headers={"Content-Type": "application/json"} if data is not None else None,
+                timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
+            ) as resp:
+                text = await resp.text(errors="replace")
+                status = resp.status
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise IRBlasterConnectionError(f"{self.host}:{self.port} unreachable: {err}") from err
+        _LOGGER.debug("%s %s via %s: HTTP %s in %.0f ms", method, path, target, status, (time.monotonic() - start) * 1000)
         if status == 401:
             raise IRBlasterAuthError(text.strip() or "Unauthorized")
         return status, text
@@ -160,6 +209,7 @@ class IRBlasterClient:
     async def send_code(self, code: str, out: int = 1, repeat: int = 1, rdelay: int | None = None,
                         pulse: int | None = None, pdelay: int | None = None, address: str | None = None) -> None:
         """Send DATA:TYPE:BITS via /msg."""
+        self.last_send = time.monotonic()
         status, text = await self._request(
             "GET", "/msg",
             {"code": code, "out": out, "repeat": repeat, "rdelay": rdelay,
@@ -170,6 +220,7 @@ class IRBlasterClient:
 
     async def send_json(self, commands: list[dict[str, Any]], out: int = 1) -> None:
         """POST a command array to /json (raw, pronto, delay or named-protocol entries)."""
+        self.last_send = time.monotonic()
         status, text = await self._request("POST", "/json", {"out": out, "simple": 1}, data=json.dumps(commands))
         if status != 200:
             raise IRBlasterError(f"JSON send failed (HTTP {status}): {text.strip()[:200]}")
